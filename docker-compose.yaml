@@ -95,6 +95,9 @@ services:
   n8n:
     image: docker.n8n.io/n8nio/n8n
     restart: always
+    # 正确的启动命令方式
+    entrypoint: n8n
+    command: start --tunnel
     environment:
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres_n8n
@@ -107,6 +110,7 @@ services:
       - N8N_PROTOCOL=http
       - N8N_SECURE_COOKIE=false
       - NODE_ENV=production
+      - WEBHOOK_URL=http://ati.victrex.link/n8n/
     volumes:
       - n8n_storage:/home/node/.n8n
     networks:
