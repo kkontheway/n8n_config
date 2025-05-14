@@ -8,6 +8,7 @@ volumes:
   postgres_nocodb:
   postgres_n8n:
   n8n_storage:
+  acme_data:  # 用于存储Let's Encrypt证书
 
 services:
   traefik:
@@ -17,21 +18,38 @@ services:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
+      # HTTP入口点
       - "--entrypoints.web.address=:80"
+      # HTTPS入口点
+      - "--entrypoints.websecure.address=:443"
+      # 配置证书解析器(Let's Encrypt)
+      - "--certificatesresolvers.myresolver.acme.email=your-email@example.com"  # 替换为你的邮箱
+      - "--certificatesresolvers.myresolver.acme.storage=/acme/acme.json"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
     ports:
       - "80:80"
+      - "443:443"  # 映射HTTPS端口
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - acme_data:/acme  # 挂载证书存储卷
     networks:
       - app-network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik-dashboard.rule=Host(`ati.victrex.link`) && PathPrefix(`/traefik`)"
       - "traefik.http.routers.traefik-dashboard.service=api@internal"
-      - "traefik.http.routers.traefik-dashboard.entrypoints=web"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"  # 更改为使用HTTPS
+      - "traefik.http.routers.traefik-dashboard.tls=true"  # 启用TLS
+      - "traefik.http.routers.traefik-dashboard.tls.certresolver=myresolver"  # 使用配置的证书解析器
       - "traefik.http.middlewares.traefik-strip.stripprefix.prefixes=/traefik"
       - "traefik.http.routers.traefik-dashboard.middlewares=traefik-strip@docker"
+      # 添加HTTP到HTTPS的重定向
+      - "traefik.http.routers.traefik-dashboard-redirect.rule=Host(`ati.victrex.link`) && PathPrefix(`/traefik`)"
+      - "traefik.http.routers.traefik-dashboard-redirect.entrypoints=web"
+      - "traefik.http.routers.traefik-dashboard-redirect.middlewares=redirect-to-https@docker"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
 
   postgres_nocodb:
     image: postgres
@@ -56,7 +74,7 @@ services:
     environment:
       NC_DB: "pg://postgres_nocodb:5432?u=postgres&p=zhy12345&d=postgres"
       NC_AUTH_JWT_SECRET: "569a1821-0a93-45e8-87ab-eb857f20a010"
-      NC_PUBLIC_URL: "http://ati.victrex.link/nocodb/"
+      NC_PUBLIC_URL: "https://ati.victrex.link/nocodb/"  # 更新为HTTPS URL
     volumes:
       - ./nocodb:/usr/app/data/
     networks:
@@ -68,9 +86,15 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.nocodb.rule=Host(`ati.victrex.link`) && PathPrefix(`/nocodb`)"
       - "traefik.http.services.nocodb.loadbalancer.server.port=8080"
-      - "traefik.http.routers.nocodb.entrypoints=web"
+      - "traefik.http.routers.nocodb.entrypoints=websecure"  # 更改为使用HTTPS
+      - "traefik.http.routers.nocodb.tls=true"  # 启用TLS
+      - "traefik.http.routers.nocodb.tls.certresolver=myresolver"  # 使用配置的证书解析器
       - "traefik.http.middlewares.nocodb-strip.stripprefix.prefixes=/nocodb"
       - "traefik.http.routers.nocodb.middlewares=nocodb-strip@docker"
+      # 添加HTTP到HTTPS的重定向
+      - "traefik.http.routers.nocodb-redirect.rule=Host(`ati.victrex.link`) && PathPrefix(`/nocodb`)"
+      - "traefik.http.routers.nocodb-redirect.entrypoints=web"
+      - "traefik.http.routers.nocodb-redirect.middlewares=redirect-to-https@docker"
 
   postgres_n8n:
     image: postgres:16
@@ -95,7 +119,6 @@ services:
   n8n:
     image: docker.n8n.io/n8nio/n8n
     restart: always
-    # 正确的启动命令方式
     entrypoint: n8n
     command: start --tunnel
     environment:
@@ -107,10 +130,10 @@ services:
       - DB_POSTGRESDB_PASSWORD=${POSTGRES_NON_ROOT_PASSWORD:-n8n_pass}
       - N8N_PATH=/n8n
       - N8N_HOST=ati.victrex.link
-      - N8N_PROTOCOL=http
-      - N8N_SECURE_COOKIE=false
+      - N8N_PROTOCOL=https  # 更改为HTTPS
+      - N8N_SECURE_COOKIE=true  # 启用安全Cookie
       - NODE_ENV=production
-      - WEBHOOK_URL=http://ati.victrex.link/n8n/
+      - WEBHOOK_URL=https://ati.victrex.link/n8n/  # 更新为HTTPS URL
     volumes:
       - n8n_storage:/home/node/.n8n
     networks:
@@ -122,6 +145,12 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=Host(`ati.victrex.link`) && PathPrefix(`/n8n`)"
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
-      - "traefik.http.routers.n8n.entrypoints=web"
+      - "traefik.http.routers.n8n.entrypoints=websecure"  # 更改为使用HTTPS
+      - "traefik.http.routers.n8n.tls=true"  # 启用TLS
+      - "traefik.http.routers.n8n.tls.certresolver=myresolver"  # 使用配置的证书解析器
       - "traefik.http.middlewares.n8n-strip.stripprefix.prefixes=/n8n"
       - "traefik.http.routers.n8n.middlewares=n8n-strip@docker"
+      # 添加HTTP到HTTPS的重定向
+      - "traefik.http.routers.n8n-redirect.rule=Host(`ati.victrex.link`) && PathPrefix(`/n8n`)"
+      - "traefik.http.routers.n8n-redirect.entrypoints=web"
+      - "traefik.http.routers.n8n-redirect.middlewares=redirect-to-https@docker"
