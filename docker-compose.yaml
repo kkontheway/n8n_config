@@ -120,7 +120,7 @@ services:
     image: docker.n8n.io/n8nio/n8n
     restart: always
     entrypoint: n8n
-    command: start --tunnel
+    command: start
     environment:
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres_n8n
@@ -130,10 +130,18 @@ services:
       - DB_POSTGRESDB_PASSWORD=${POSTGRES_NON_ROOT_PASSWORD:-n8n_pass}
       - N8N_PATH=/n8n
       - N8N_HOST=ati.victrex.link
-      - N8N_PROTOCOL=https  # 更改为HTTPS
-      - N8N_SECURE_COOKIE=true  # 启用安全Cookie
+      - N8N_PROTOCOL=https
+      - N8N_SECURE_COOKIE=true
       - NODE_ENV=production
-      - WEBHOOK_URL=https://ati.victrex.link/n8n/  # 更新为HTTPS URL
+      # 正确配置webhook URL，确保以斜杠结尾
+      - WEBHOOK_URL=https://ati.victrex.link/n8n/
+      # 配置webhook端点路径
+      - N8N_ENDPOINT_WEBHOOK=webhook
+      - N8N_ENDPOINT_WEBHOOK_TEST=webhook-test
+      - N8N_ENDPOINT_WEBHOOK_WAIT=webhook-waiting
+      # 可选：增加payload大小限制（如果你的webhook需要处理大文件）
+      - N8N_PAYLOAD_SIZE_MAX=20
+      - N8N_FORMDATA_FILE_SIZE_MAX=250
     volumes:
       - n8n_storage:/home/node/.n8n
     networks:
@@ -145,9 +153,9 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.n8n.rule=Host(`ati.victrex.link`) && PathPrefix(`/n8n`)"
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
-      - "traefik.http.routers.n8n.entrypoints=websecure"  # 更改为使用HTTPS
-      - "traefik.http.routers.n8n.tls=true"  # 启用TLS
-      - "traefik.http.routers.n8n.tls.certresolver=myresolver"  # 使用配置的证书解析器
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls=true"
+      - "traefik.http.routers.n8n.tls.certresolver=myresolver"
       - "traefik.http.middlewares.n8n-strip.stripprefix.prefixes=/n8n"
       - "traefik.http.routers.n8n.middlewares=n8n-strip@docker"
       # 添加HTTP到HTTPS的重定向
