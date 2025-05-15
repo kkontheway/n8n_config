@@ -74,7 +74,9 @@ services:
     environment:
       NC_DB: "pg://postgres_nocodb:5432?u=postgres&p=zhy12345&d=postgres"
       NC_AUTH_JWT_SECRET: "569a1821-0a93-45e8-87ab-eb857f20a010"
-      NC_PUBLIC_URL: "https://ati.victrex.link/nocodb/"  # 更新为HTTPS URL
+      NC_PUBLIC_URL: "https://ati.victrex.link/nocodb"  # 移除结尾斜杠
+      NC_DASHBOARD_URL: "/dashboard"  # 添加控制面板路径
+      NC_TOOL_DIR: "/usr/app/data/"  # 确保工具目录设置正确
     volumes:
       - ./nocodb:/usr/app/data/
     networks:
@@ -86,12 +88,13 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.nocodb.rule=Host(`ati.victrex.link`) && PathPrefix(`/nocodb`)"
       - "traefik.http.services.nocodb.loadbalancer.server.port=8080"
-      - "traefik.http.routers.nocodb.entrypoints=websecure"  # 更改为使用HTTPS
-      - "traefik.http.routers.nocodb.tls=true"  # 启用TLS
-      - "traefik.http.routers.nocodb.tls.certresolver=myresolver"  # 使用配置的证书解析器
+      - "traefik.http.routers.nocodb.entrypoints=websecure"
+      - "traefik.http.routers.nocodb.tls=true"
+      - "traefik.http.routers.nocodb.tls.certresolver=myresolver"
       - "traefik.http.middlewares.nocodb-strip.stripprefix.prefixes=/nocodb"
+      - "traefik.http.middlewares.nocodb-strip.stripprefix.forceSlash=true"  # 添加强制斜杠选项
       - "traefik.http.routers.nocodb.middlewares=nocodb-strip@docker"
-      # 添加HTTP到HTTPS的重定向
+      # HTTP到HTTPS重定向保持不变
       - "traefik.http.routers.nocodb-redirect.rule=Host(`ati.victrex.link`) && PathPrefix(`/nocodb`)"
       - "traefik.http.routers.nocodb-redirect.entrypoints=web"
       - "traefik.http.routers.nocodb-redirect.middlewares=redirect-to-https@docker"
