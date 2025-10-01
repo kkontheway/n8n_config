@@ -9,6 +9,7 @@ volumes:
   postgres_n8n:
   n8n_storage:
   acme_data:  # 用于存储Let's Encrypt证书
+  mysql_data:
 
 services:
   traefik:
@@ -67,6 +68,34 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-service
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-automation_db}
+      MYSQL_USER: ${MYSQL_USER:-app_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-app_password}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # 如果需要初始化数据库，可以添加初始化脚本
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    ports:
+      # 映射到宿主机的13306端口
+      - "13306:3306"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password  # 兼容性设置
 
   nocodb:
     image: nocodb/nocodb:latest
