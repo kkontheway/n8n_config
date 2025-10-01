@@ -187,6 +187,7 @@ services:
       # 可选：增加payload大小限制（如果你的webhook需要处理大文件）
       - N8N_PAYLOAD_SIZE_MAX=20
       - N8N_FORMDATA_FILE_SIZE_MAX=250
+      - GENERIC_TIMEZONE=Asia/Shanghai
     volumes:
       - n8n_storage:/home/node/.n8n
     networks:
